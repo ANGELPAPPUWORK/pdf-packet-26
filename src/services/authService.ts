@@ -1,12 +1,15 @@
 import { supabase } from '@/lib/supabaseClient'
-import crypto from 'crypto'
 
 class AuthService {
   /**
-   * Create a simple hash for password (client-side only, for demo purposes)
+   * Create a simple hash for password using SubtleCrypto (browser-safe)
    */
-  private hashPassword(password: string): string {
-    return Buffer.from(password).toString('base64')
+  private async hashPassword(password: string): Promise<string> {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
   }
 
   /**
@@ -20,7 +23,7 @@ class AuthService {
       .maybeSingle()
 
     if (!existingUser) {
-      const passwordHash = this.hashPassword(password)
+      const passwordHash = await this.hashPassword(password)
       const { error } = await supabase
         .from('admin_users')
         .insert({
@@ -54,7 +57,7 @@ class AuthService {
       return false
     }
 
-    const passwordHash = this.hashPassword(password)
+    const passwordHash = await this.hashPassword(password)
     return data.password_hash === passwordHash
   }
 
